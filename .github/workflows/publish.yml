@@ -1,0 +1,96 @@
+on:
+  push:
+    branches:
+      - main
+name: Deploy Backend
+jobs:
+  deploy_backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bun
+        uses: oven-sh/setup-bun@v1
+      - uses: "google-github-actions/auth@v3"
+        id: "auth"
+        with:
+          project_id: frumbers
+          workload_identity_provider: projects/749516152525/locations/global/workloadIdentityPools/frumbers-ci/providers/github
+          service_account: frumbers-ci@frumbers.iam.gserviceaccount.com
+      - uses: "google-github-actions/setup-gcloud@v3"
+        with:
+          version: ">= 363.0.0"
+      - run: gcloud auth list
+      - run: gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: ./backend
+      - name: Build Docker image
+        id: docker_build
+        run: |
+          set -euo pipefail
+          VERSION="$(cat package.json | jq -r ".version")"
+          if [ -z "$VERSION" ]; then
+              echo "Could not find version in package.json"
+              exit 1
+          fi
+          IMAGE_URL="europe-west2-docker.pkg.dev/frumbers/docker/frumbers_backend:$VERSION"
+          echo "image_url=$IMAGE_URL" >> $GITHUB_OUTPUT
+          docker build -t "$IMAGE_URL" .
+        working-directory: ./backend
+      - name: Docker push
+        run: docker push ${{ steps.docker_build.outputs.image_url }}
+      - name: "Deploy to Cloud Run"
+        id: deploy
+        uses: "google-github-actions/deploy-cloudrun@v2"
+        with:
+          region: "europe-west2"
+          service: "frumbers-backend"
+          image: ${{ steps.docker_build.outputs.image_url }}
+          env_vars: |-
+            POSTGRES_SSL=true
+            POSTGRES_DB_NAME=frumbers
+            POSTGRES_USER=frumbers_server
+            POSTGRES_PORT=5432
+            ALLOWED_CORS_ORIGINS=frumbers.com;localhost:5173
+            PUSHER_CLUSTER=eu
+          env_vars_update_strategy: "overwrite"
+          secrets: |-
+            POSTGRES_HOST=postgres-host:latest
+            POSTGRES_PASSWORD=postgres-password:latest
+            PUSHER_KEY=pusher-key:latest
+            PUSHER_APP_ID=pusher-app-id:latest
+            PUSHER_SECRET=pusher-secret:latest
+          secrets_update_strategy: "overwrite"
+
+  deploy_frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bun
+        uses: oven-sh/setup-bun@v1
+      - name: Install backend dependencies
+        run: bun install --frozen-lockfile
+        working-directory: ./backend
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+        working-directory: ./frontend
+      - name: Build
+        env:
+          VITE_SERVER_URL: "https://frumbers-backend-749516152525.europe-west2.run.app"
+          VITE_PUSHER_CLUSTER: "eu"
+          VITE_PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+          VITE_PUSHER_KEY: ${{ secrets.PUSHER_KEY }}
+          VITE_PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        run: bun run build
+        working-directory: ./frontend
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: frumbers
+          directory: ./frontend/dist
+          branch: main
