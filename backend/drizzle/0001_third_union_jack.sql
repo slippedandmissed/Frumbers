@@ -1,0 +1,1 @@
+ALTER TABLE "games" ADD COLUMN "is_over" boolean DEFAULT false NOT NULL;

@@ -1,0 +1,6 @@
+FROM oven/bun:1-alpine
+
+WORKDIR /app
+
+ENTRYPOINT [ "/usr/local/bin/bun" ]
+CMD [ "run", "--watch", "." ]
