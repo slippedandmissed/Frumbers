@@ -5,7 +5,10 @@ import {
 } from "@tanstack/react-query";
 import { api } from "../utils/api";
 import { useAuth } from "./useAuth";
-import { setShowRoundIndicatorPreference } from "../utils/preferences";
+import {
+  setShowRoundIndicatorPreference,
+  setShowRunningTotalsPreference,
+} from "../utils/preferences";
 
 export function useMyGame({ gameId }: { gameId: string }) {
   const { playerId, playerPin } = useAuth();
@@ -83,11 +86,16 @@ export function useMyGame({ gameId }: { gameId: string }) {
   });
 
   const updateSettings = useMutation({
-    mutationFn: async (updates: { showRoundIndicator?: boolean }) =>
-      unwrap(await admin.patch({ ...updates, $headers })),
+    mutationFn: async (updates: {
+      showRoundIndicator?: boolean;
+      showRunningTotals?: boolean;
+    }) => unwrap(await admin.patch({ ...updates, $headers })),
     onMutate: async (updates) => {
       if (updates.showRoundIndicator !== undefined) {
         setShowRoundIndicatorPreference(updates.showRoundIndicator);
+      }
+      if (updates.showRunningTotals !== undefined) {
+        setShowRunningTotalsPreference(updates.showRunningTotals);
       }
       await queryClient.cancelQueries({ queryKey: myGameKey });
       const previous = queryClient.getQueryData<typeof data>(myGameKey);
@@ -133,6 +141,8 @@ export function useMyGame({ gameId }: { gameId: string }) {
     editRound: editRound.mutate,
     setShowRoundIndicator: (showRoundIndicator: boolean) =>
       updateSettings.mutate({ showRoundIndicator }),
+    setShowRunningTotals: (showRunningTotals: boolean) =>
+      updateSettings.mutate({ showRunningTotals }),
     addRound: addRound.mutateAsync,
     deleteRound: deleteRound.mutate,
     reorderUpcomingRounds: reorderUpcomingRounds.mutate,

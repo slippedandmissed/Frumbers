@@ -1,6 +1,6 @@
-import { Text } from "@mantine/core";
+import { Badge } from "@mantine/core";
 
-/** "Round X/Y". Renders nothing when the host has hidden the total. */
+/** "Round X of Y". Renders nothing when the host has hidden the total. */
 export function RoundIndicator({
   position,
   totalRounds,
@@ -12,8 +12,8 @@ export function RoundIndicator({
     return null;
   }
   return (
-    <Text c="dimmed" fw="bold" size="lg">
-      Round {position + 1}/{totalRounds}
-    </Text>
+    <Badge variant="light" size="lg">
+      Round {position + 1} of {totalRounds}
+    </Badge>
   );
 }

@@ -3,6 +3,19 @@ import { api } from "../utils/api";
 import { usePusher } from "./usePusher";
 import { useEffect } from "react";
 
+export function playerQueryOptions(playerId: string) {
+  return {
+    queryKey: ["player", playerId],
+    queryFn: async () => {
+      const response = await api.player[playerId].get();
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      return response.data;
+    },
+  };
+}
+
 export function usePlayer({ playerId }: { playerId: string }) {
   const pusher = usePusher();
   const queryClient = useQueryClient();
@@ -16,16 +29,7 @@ export function usePlayer({ playerId }: { playerId: string }) {
     };
   }, [playerId, pusher, queryClient]);
 
-  const { data } = useSuspenseQuery({
-    queryKey: ["player", playerId],
-    queryFn: async () => {
-      const response = await api.player[playerId].get();
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-      return response.data;
-    },
-  });
+  const { data } = useSuspenseQuery(playerQueryOptions(playerId));
 
   return data;
 }

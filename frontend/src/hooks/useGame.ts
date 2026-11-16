@@ -5,7 +5,7 @@ import { useAuth } from "./useAuth";
 export function useGame({ gameId }: { gameId: string }) {
   const { playerId, playerPin } = useAuth();
   const queryClient = useQueryClient();
-  const { data } = useSuspenseQuery({
+  const { data, dataUpdatedAt } = useSuspenseQuery({
     queryKey: ["game", gameId],
     queryFn: async () => {
       const response = await api.game[gameId].get({
@@ -24,6 +24,8 @@ export function useGame({ gameId }: { gameId: string }) {
   return {
     ...data,
     isMine: data.ownerId === playerId,
+    /** Add to Date.now() to get (approximately) the server's clock. */
+    serverOffsetMs: Date.parse(data.serverTime) - dataUpdatedAt,
     invalidate: () =>
       queryClient.invalidateQueries({ queryKey: ["game", gameId] }),
   };

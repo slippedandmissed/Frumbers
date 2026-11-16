@@ -1,0 +1,86 @@
+.question {
+  text-align: center;
+  @mixin light {
+    background: linear-gradient(135deg, #fff, var(--mantine-color-frum-0));
+  }
+  @mixin dark {
+    background: linear-gradient(135deg, #2b3a9e, #5b34a8);
+  }
+}
+
+.questionText {
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.live {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mantine-color-red-6);
+  margin-right: 6px;
+  animation: pulse 1.6s ease-out infinite;
+}
+
+.sticky {
+  position: sticky;
+  bottom: var(--mantine-spacing-md);
+  z-index: 20;
+  box-shadow: var(--mantine-shadow-lg);
+  backdrop-filter: blur(12px);
+  @mixin light {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+  @mixin dark {
+    background-color: rgba(31, 39, 99, 0.92);
+  }
+}
+
+.guessInput input {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  height: 4rem;
+  font-family: var(--mantine-font-family-headings);
+}
+
+.lockedIn {
+  animation: pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.waitDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mantine-color-yellow-5);
+  animation: pulse-yellow 1.6s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(250, 82, 82, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(250, 82, 82, 0);
+  }
+}
+
+@keyframes pulse-yellow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(252, 196, 25, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(252, 196, 25, 0);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}

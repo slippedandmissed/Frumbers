@@ -12,6 +12,8 @@ import { PusherContext } from "./components/PusherContext";
 import { Notifications } from "@mantine/notifications";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
+import "./global.css";
+import { theme } from "./theme";
 
 declare module "@tanstack/react-router" {
   interface Register {
@@ -34,7 +36,7 @@ createRoot(document.getElementById("root")!).render(
 export function App() {
   const pusher = useMemo(() => createPusher(), []);
   return (
-    <MantineProvider defaultColorScheme="dark">
+    <MantineProvider theme={theme} defaultColorScheme="auto">
       <Notifications />
       <QueryClientProvider client={queryClient}>
         <ErrorBoundary

@@ -1,0 +1,48 @@
+.row {
+  min-height: 60px;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  animation: row-in 350ms ease both;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &[data-me] {
+    @mixin light {
+      background-color: var(--mantine-color-frum-0);
+    }
+    @mixin dark {
+      background-color: rgba(106, 164, 255, 0.16);
+    }
+  }
+}
+
+.time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  color: var(--mantine-color-frum-filled);
+}
+
+.hidden {
+  filter: blur(5px);
+  user-select: none;
+  letter-spacing: 0.1em;
+}
+
+.empty {
+  border-style: dashed;
+  background: transparent;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

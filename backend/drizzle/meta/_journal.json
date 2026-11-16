@@ -29,6 +29,20 @@
       "when": 1794856365871,
       "tag": "0003_drop_game_question_answer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794859986358,
+      "tag": "0004_add_show_running_totals",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794861664751,
+      "tag": "0005_add_race_sync",
+      "breakpoints": true
     }
   ]
 }

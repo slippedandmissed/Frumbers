@@ -1,20 +1,23 @@
-import { Avatar, Stack, TextInput, Title } from "@mantine/core";
+import { Avatar, Stack, Text, TextInput } from "@mantine/core";
 import { useMe } from "../hooks/useMe";
 
 export function ProfileDrawerContent() {
   const { name, setName } = useMe();
   return (
     <Stack gap="lg">
-      <Title order={2} mb="lg">
-        Profile
-      </Title>
-      <Avatar name={name} color="initials" size={80} ml="auto" mr="auto" />
+      <Avatar name={name} color="initials" size={88} mx="auto" />
       <TextInput
+        data-autofocus
+        size="md"
+        label="Display name"
+        description="Shown next to your guesses. Change it to whatever you like."
         value={name}
-        description="Your display name will be shown to other players."
         onChange={(e) => setName(e.target.value)}
-        label="Name"
       />
+      <Text size="sm" c="dimmed">
+        Changes save as you type, and everyone in your games sees them right
+        away.
+      </Text>
     </Stack>
   );
 }

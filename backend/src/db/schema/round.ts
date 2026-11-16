@@ -24,6 +24,10 @@ export const rounds = pgTable("rounds", {
   question: text("question").notNull(),
   answer: numericCasted("answer").notNull(),
   isOver: boolean("is_over").notNull().default(false),
+  // When the round was finished: the shared clock origin for the results race.
+  finishedAt: timestamp("finished_at"),
+  // The host skipped the results race, so everyone jumps to the podium.
+  raceSkipped: boolean("race_skipped").notNull().default(false),
 });
 export const Round = createSelectSchema(rounds);
 export type Round = Static<typeof Round>;

@@ -1,0 +1,24 @@
+.root {
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.text {
+  animation: fade-in 400ms ease;
+  transition: opacity 200ms ease;
+}
+
+.text[data-refreshing] {
+  opacity: 0.5;
+}
+
+.icon {
+  transition: transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}

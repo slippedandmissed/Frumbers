@@ -24,6 +24,12 @@ export const games = pgTable("games", {
   isOver: boolean("is_over").notNull().default(false),
   currentRoundPosition: integer("current_round_position").notNull().default(0),
   showRoundIndicator: boolean("show_round_indicator").notNull().default(true),
+  // Whether running totals are shown between rounds. They are always hidden
+  // after the last round (so the final reveal isn't spoiled) and shown at the end.
+  // Same as the round equivalents, for the grand-final race.
+  finishedAt: timestamp("finished_at"),
+  raceSkipped: boolean("race_skipped").notNull().default(false),
+  showRunningTotals: boolean("show_running_totals").notNull().default(true),
 });
 export const Game = createSelectSchema(games);
 export type Game = Static<typeof Game>;

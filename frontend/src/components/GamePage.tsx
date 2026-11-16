@@ -1,28 +1,40 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePusher } from "../hooks/usePusher";
 import { useGame } from "../hooks/useGame";
 import {
+  Badge,
   Button,
   Card,
+  Container,
   Group,
   Loader,
+  Modal,
   NumberInput,
+  Progress,
   Stack,
   Text,
   Title,
-  Tooltip,
 } from "@mantine/core";
 import { useMyGame } from "../hooks/useMyGame";
 import { useGuesses } from "../hooks/useGuesses";
 import { useAuth } from "../hooks/useAuth";
-import { usePlayer } from "../hooks/usePlayer";
-import TimeAgo from "react-timeago";
-import { IconCopy } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCopy,
+  IconEye,
+  IconPlayerPlay,
+  IconPlus,
+  IconFlag,
+} from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { RoundIndicator } from "./RoundIndicator";
-import { AddRoundForm, HostRoundsPanel } from "./HostRoundsPanel";
+import { AddRoundForm } from "./HostRoundsPanel";
+import { HostControls } from "./HostControls";
+import { GuessList } from "./GuessList";
 import { FinalResults, RoundOverResults } from "./Results";
+import { markGuessMade } from "../utils/hints";
+import classes from "./GamePage.module.css";
 
 // Keep in sync with MIN_GUESSES_TO_FINISH_ROUND in backend/src/core/game.ts.
 const MIN_GUESSES_TO_FINISH_ROUND = 2;
@@ -50,132 +62,246 @@ export function GamePage({ gameId }: { gameId: string }) {
 
   if (phase === "game-over") {
     return (
-      <Stack m="xl" align="center" justify="center">
+      <Container size="md" py="xl">
         <FinalResults gameId={gameId} />
-      </Stack>
+      </Container>
     );
   }
   if (phase === "round-over") {
     return <RoundOver gameId={gameId} isMine={isMine} />;
   }
   if (isMine) {
-    return <MyGame gameId={gameId} />;
+    return <HostPlaying gameId={gameId} />;
   }
-  return <SomeoneElsesGame gameId={gameId} />;
+  return <PlayerPlaying gameId={gameId} />;
 }
 
-function SomeoneElsesGame({ gameId }: { gameId: string }) {
+/** The frame every in-game screen shares: a status row, then the content. */
+function Screen({
+  gameId,
+  isMine,
+  live,
+  position,
+  totalRounds,
+  size = "sm",
+  children,
+}: {
+  gameId: string;
+  isMine: boolean;
+  size?: "sm" | "md";
+  live?: boolean;
+  position: number;
+  totalRounds: number | null;
+  children: ReactNode;
+}) {
+  return (
+    <Container size={size} py="lg">
+      <Stack gap="lg">
+        <Group justify="space-between" mih={34}>
+          <Group gap="xs">
+            {live && (
+              <Badge variant="light" color="red" size="lg" tt="uppercase">
+                <span className={classes.live} />
+                Live
+              </Badge>
+            )}
+            <RoundIndicator position={position} totalRounds={totalRounds} />
+          </Group>
+          {isMine && <HostControls gameId={gameId} />}
+        </Group>
+        {children}
+      </Stack>
+    </Container>
+  );
+}
+
+function QuestionCard({
+  question,
+  hostAnswer,
+}: {
+  question: string;
+  /** Only passed to the host. */
+  hostAnswer?: number;
+}) {
+  return (
+    <Card p={{ base: "lg", sm: "xl" }} className={classes.question} shadow="sm">
+      <Stack align="center" gap="md">
+        <Title order={1} className={classes.questionText}>
+          {question}
+        </Title>
+        {hostAnswer !== undefined && (
+          <Badge
+            variant="light"
+            color="gray"
+            size="lg"
+            tt="none"
+            leftSection={<IconEye size={14} />}
+          >
+            Answer: {hostAnswer} &middot; only you can see this
+          </Badge>
+        )}
+      </Stack>
+    </Card>
+  );
+}
+
+function PlayerPlaying({ gameId }: { gameId: string }) {
   const { currentRound, totalRounds } = useGame({ gameId });
   // Remount per round so the guess box resets.
   return (
-    <GuessScreen
+    <Screen
       key={currentRound.id}
       gameId={gameId}
-      question={currentRound.question}
+      isMine={false}
+      live
       position={currentRound.position}
       totalRounds={totalRounds}
-    />
+    >
+      <QuestionCard question={currentRound.question} />
+      <GuessBox gameId={gameId} />
+      <GuessList gameId={gameId} />
+    </Screen>
   );
 }
 
-function GuessScreen({
-  gameId,
-  question,
-  position,
-  totalRounds,
-}: {
-  gameId: string;
-  question: string;
-  position: number;
-  totalRounds: number | null;
-}) {
-  const { makeGuess, haveIGuessed } = useGuesses({ gameId });
+function GuessBox({ gameId }: { gameId: string }) {
+  const { makeGuess, haveIGuessed, guesses } = useGuesses({ gameId });
+  const { playerId } = useAuth();
+  const [guess, setGuess] = useState<number | string>("");
+  const myGuess = guesses.find((g) => g.playerId === playerId);
 
-  const [guess, setGuess] = useState<number>(0);
+  if (haveIGuessed) {
+    return (
+      <Card
+        p="lg"
+        className={classes.lockedIn}
+        bg="var(--mantine-color-green-light)"
+      >
+        <Group justify="center" gap="md" wrap="nowrap">
+          <IconCheck size={28} color="var(--mantine-color-green-filled)" />
+          <Stack gap={0}>
+            <Text fw={700}>
+              Locked in{myGuess ? `: ${myGuess.guess}` : ""} 🤞
+            </Text>
+            <Text size="sm" c="dimmed">
+              Waiting for the host to reveal the answer.
+            </Text>
+          </Stack>
+        </Group>
+      </Card>
+    );
+  }
 
   return (
-    <Stack m="xl" align="center" justify="center" gap="xl">
-      <Stack align="center" gap={0}>
-        <RoundIndicator position={position} totalRounds={totalRounds} />
-        <Title ta="center">{question}</Title>
-      </Stack>
-      <GuessList gameId={gameId} />
-      <NumberInput
-        disabled={haveIGuessed}
-        size="xl"
-        label="Make a guess"
-        placeholder="42"
-        value={guess}
-        onChange={(value) => setGuess(isNaN(+value) ? 0 : +value)}
-      />
-      <Button
-        disabled={haveIGuessed}
-        size="xl"
-        onClick={() => {
-          makeGuess(guess);
+    <Card p="lg" shadow="sm">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (guess === "") return;
+          markGuessMade();
+          makeGuess(Number(guess));
         }}
       >
-        {haveIGuessed ? "Guess Submitted 🤞" : "Submit Guess"}
-      </Button>
-    </Stack>
+        <Stack>
+          <NumberInput
+            size="xl"
+            aria-label="Your guess"
+            placeholder="Your guess"
+            hideControls
+            classNames={{ root: classes.guessInput }}
+            value={guess}
+            onChange={setGuess}
+          />
+          <Button type="submit" size="lg" fullWidth disabled={guess === ""}>
+            Submit guess
+          </Button>
+        </Stack>
+      </form>
+    </Card>
   );
 }
 
-function MyGame({ gameId }: { gameId: string }) {
-  const { game, rounds, finishRound } = useMyGame({ gameId });
+function HostPlaying({ gameId }: { gameId: string }) {
+  const { game, rounds, currentRound, finishRound } = useMyGame({ gameId });
   const { guesses } = useGuesses({ gameId });
+  const enough = guesses.length >= MIN_GUESSES_TO_FINISH_ROUND;
 
   return (
-    <Stack m="xl" align="center" justify="center" gap="xl">
-      <Stack align="center" gap={0}>
-        <RoundIndicator
-          position={game.currentRoundPosition}
-          totalRounds={rounds.length}
-        />
-        <Title>The Game is On!</Title>
-      </Stack>
-      <ShareCard />
-      <HostRoundsPanel gameId={gameId} />
-      <Stack align="center" gap="xs">
-        <Button
-          size="xl"
-          disabled={guesses.length < MIN_GUESSES_TO_FINISH_ROUND}
-          onClick={() => finishRound()}
-        >
-          Finish Round
-        </Button>
-        {guesses.length < MIN_GUESSES_TO_FINISH_ROUND && (
-          <Text c="dimmed" size="sm">
-            Waiting for at least {MIN_GUESSES_TO_FINISH_ROUND} guesses (
-            {guesses.length} so far)
-          </Text>
-        )}
-      </Stack>
+    <Screen
+      gameId={gameId}
+      isMine
+      live
+      position={game.currentRoundPosition}
+      totalRounds={rounds.length}
+    >
+      <QuestionCard
+        question={currentRound?.question ?? ""}
+        hostAnswer={currentRound?.answer}
+      />
+      <ShareButton />
+      <Card p="lg" shadow="sm">
+        <Stack gap="md">
+          <Group justify="space-between" wrap="nowrap" align="center">
+            <Stack gap={2}>
+              <Text fw={700}>
+                {guesses.length} guess{guesses.length === 1 ? "" : "es"} in
+              </Text>
+              <Text size="sm" c="dimmed">
+                {enough
+                  ? "Reveal whenever you're ready."
+                  : `Need at least ${MIN_GUESSES_TO_FINISH_ROUND} to reveal the answer.`}
+              </Text>
+            </Stack>
+            <Button
+              size="md"
+              leftSection={<IconEye size={18} />}
+              disabled={!enough}
+              onClick={() => finishRound()}
+            >
+              Reveal answer
+            </Button>
+          </Group>
+          {!enough && (
+            <Progress
+              value={(guesses.length / MIN_GUESSES_TO_FINISH_ROUND) * 100}
+              size="xs"
+              animated
+            />
+          )}
+        </Stack>
+      </Card>
       <GuessList gameId={gameId} />
-    </Stack>
+    </Screen>
   );
 }
 
-/** Winner screen after a round. Everyone sees results; the host also steers. */
+/** Results after a round. Everyone sees them; the host also steers. */
 function RoundOver({ gameId, isMine }: { gameId: string; isMine: boolean }) {
   const { currentRound, totalRounds } = useGame({ gameId });
   return (
-    <Stack m="xl" align="center" justify="center" gap="xl">
-      <RoundIndicator
-        position={currentRound.position}
-        totalRounds={totalRounds}
-      />
-      <Suspense fallback={<Loader />}>
+    <Screen
+      size="md"
+      gameId={gameId}
+      isMine={isMine}
+      position={currentRound.position}
+      totalRounds={totalRounds}
+    >
+      <Suspense fallback={<Loader mx="auto" />}>
         <RoundOverResults gameId={gameId} roundId={currentRound.id} />
       </Suspense>
-      {isMine ? (
-        <HostRoundOverControls gameId={gameId} />
-      ) : (
-        <Text c="dimmed" fw="bold">
-          Waiting for the host to continue&hellip;
-        </Text>
-      )}
-    </Stack>
+      <Card p="md" className={classes.sticky} radius="xl">
+        {isMine ? (
+          <HostRoundOverControls gameId={gameId} />
+        ) : (
+          <Group justify="center" gap="sm">
+            <span className={classes.waitDot} />
+            <Text fw={600} c="dimmed">
+              Waiting for the host to continue&hellip;
+            </Text>
+          </Group>
+        )}
+      </Card>
+    </Screen>
   );
 }
 
@@ -186,113 +312,66 @@ function HostRoundOverControls({ gameId }: { gameId: string }) {
   const [isAdding, setIsAdding] = useState(false);
 
   return (
-    <Stack align="center" gap="xl" w="100%">
+    <>
       {hasNextRound ? (
-        <Button size="xl" onClick={() => startNextRound()}>
-          Next Round
+        <Button
+          size="lg"
+          fullWidth
+          leftSection={<IconPlayerPlay size={18} />}
+          onClick={() => startNextRound()}
+        >
+          Next round
         </Button>
-      ) : isAdding ? (
-        <Card w={600} maw="90%" p="md" shadow="xl" radius="md">
-          <Stack>
-            <Title order={4}>One more question</Title>
-            <AddRoundForm
-              submitLabel="Add and start round"
-              onAdd={async (round) => {
-                await addRound(round);
-                await startNextRound();
-              }}
-            />
-            <Button variant="subtle" onClick={() => setIsAdding(false)}>
-              Cancel
-            </Button>
-          </Stack>
-        </Card>
       ) : (
-        <Group>
-          <Button size="xl" variant="outline" onClick={() => setIsAdding(true)}>
-            Add a Question
+        <Group grow>
+          <Button
+            size="lg"
+            variant="default"
+            leftSection={<IconPlus size={18} />}
+            onClick={() => setIsAdding(true)}
+          >
+            Add a question
           </Button>
-          <Button size="xl" onClick={() => finishGame()}>
-            Finish Game
+          <Button
+            size="lg"
+            leftSection={<IconFlag size={18} />}
+            onClick={() => finishGame()}
+          >
+            Finish game
           </Button>
         </Group>
       )}
-      <HostRoundsPanel gameId={gameId} canAdd={hasNextRound} />
-    </Stack>
+      <Modal
+        opened={isAdding}
+        onClose={() => setIsAdding(false)}
+        title={
+          <Title order={4} component="span">
+            One more question
+          </Title>
+        }
+        centered
+      >
+        <AddRoundForm
+          submitLabel="Add and start round"
+          onAdd={async (round) => {
+            await addRound(round);
+            await startNextRound();
+            setIsAdding(false);
+          }}
+        />
+      </Modal>
+    </>
   );
 }
 
-function GuessList({ gameId }: { gameId: string }) {
-  const { guesses } = useGuesses({ gameId });
-
-  return (
-    <Card w={600} maw="90%" p="md" shadow="xl" radius="md">
-      {guesses.length === 0 ? (
-        <Text fw="bold" color="grey" ta="center">
-          No guesses yet 🥱
-        </Text>
-      ) : (
-        <Stack>
-          {guesses.map((guess, index) => (
-            <Guess gameId={gameId} {...guess} key={index} />
-          ))}
-        </Stack>
-      )}
-    </Card>
-  );
-}
-
-function Guess({
-  gameId,
-  playerId,
-  guess,
-  created,
-}: {
-  gameId: string;
-  playerId: string;
-  guess: number;
-  created: string;
-}) {
-  const { playerId: myPlayerId } = useAuth();
-  const { isMine: isGameMine, currentRound } = useGame({ gameId });
-  const canSeeAnswer =
-    currentRound.isOver || isGameMine || myPlayerId === playerId;
-
-  return (
-    <Group>
-      <Suspense fallback={<Loader />}>
-        <GuessPlayerName playerId={playerId} />
-      </Suspense>
-      <Text>&mdash;</Text>
-      {canSeeAnswer ? (
-        <Text c="green" fw="bold">
-          {guess}
-        </Text>
-      ) : (
-        <Text style={{ filter: "blur(4px)" }}>0000</Text>
-      )}
-      <Tooltip label={new Date(created).toLocaleString()}>
-        <Text c="grey" ml="auto">
-          <TimeAgo date={new Date(created)} />
-        </Text>
-      </Tooltip>
-    </Group>
-  );
-}
-
-function GuessPlayerName({ playerId }: { playerId: string }) {
-  const { name } = usePlayer({ playerId });
-  return (
-    <Text c="blue" fw="bold">
-      {name}
-    </Text>
-  );
-}
-
-function ShareCard() {
+function ShareButton() {
   return (
     <Button
-      variant="outline"
+      variant="light"
+      size="md"
+      fullWidth
+      leftSection={<IconCopy size={16} />}
+      styles={{ label: { overflow: "hidden", textOverflow: "ellipsis" } }}
       onClick={() => {
         navigator.clipboard.writeText(window.location.href);
         notifications.show({
@@ -301,10 +380,7 @@ function ShareCard() {
         });
       }}
     >
-      <Group>
-        <IconCopy />
-        <Text fw="bold">{window.location.href}</Text>
-      </Group>
+      Copy invite link
     </Button>
   );
 }

@@ -17,3 +17,21 @@ export function setShowRoundIndicatorPreference(show: boolean) {
     // Ignore: the preference just won't be remembered.
   }
 }
+
+const SHOW_RUNNING_TOTALS_KEY = "showRunningTotals";
+
+export function getShowRunningTotalsPreference(): boolean {
+  try {
+    return localStorage.getItem(SHOW_RUNNING_TOTALS_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+export function setShowRunningTotalsPreference(show: boolean) {
+  try {
+    localStorage.setItem(SHOW_RUNNING_TOTALS_KEY, String(show));
+  } catch {
+    // Ignore: the preference just won't be remembered.
+  }
+}

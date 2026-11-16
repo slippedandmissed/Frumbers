@@ -1,0 +1,51 @@
+:root {
+  --font-cartoon: "Lilita One", var(--mantine-font-family-headings), sans-serif;
+}
+
+/* Springy buttons */
+.mantine-Button-root {
+  transition:
+    transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 120ms ease;
+}
+.mantine-Button-root:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.mantine-Button-root:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  background-attachment: fixed;
+}
+
+[data-mantine-color-scheme="light"] body {
+  background-color: #eaf6ff;
+  background-image:
+    radial-gradient(60rem 32rem at 8% -10%, #bfe3ff 0%, transparent 60%),
+    radial-gradient(50rem 30rem at 100% 0%, #ffeaa0 0%, transparent 55%),
+    radial-gradient(40rem 30rem at 50% 110%, #ffd6e8 0%, transparent 60%);
+}
+
+[data-mantine-color-scheme="dark"] body {
+  background-color: #171d4f;
+  background-image:
+    radial-gradient(60rem 32rem at 8% -10%, #2f55d4 0%, transparent 60%),
+    radial-gradient(50rem 30rem at 100% 0%, #7a3dc9 0%, transparent 55%),
+    radial-gradient(40rem 30rem at 50% 110%, #d6542f 0%, transparent 62%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

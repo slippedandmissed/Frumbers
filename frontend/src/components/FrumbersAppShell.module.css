@@ -1,0 +1,54 @@
+.header {
+  backdrop-filter: blur(12px);
+  @mixin light {
+    background-color: rgba(255, 255, 255, 0.75);
+  }
+  @mixin dark {
+    background-color: rgba(23, 29, 79, 0.8);
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  text-decoration: none;
+  color: inherit;
+}
+
+.title {
+  letter-spacing: -0.02em;
+  font-size: 1.35rem;
+}
+
+.sticker {
+  /* Dark text on sunny yellow, with a sticker outline, reads in both themes. */
+  background: #ffd43b;
+  color: #2b2100;
+  border: 2px solid #2b2100;
+  box-shadow: 0 2px 0 #2b2100;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+  transform-origin: left center;
+
+  @media (max-width: 30em) {
+    font-size: 9px;
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.content {
+  flex: 1;
+  padding: var(--mantine-spacing-md);
+}
+
+.footer {
+  padding: var(--mantine-spacing-lg) var(--mantine-spacing-md);
+}

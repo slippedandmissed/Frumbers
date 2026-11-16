@@ -1,0 +1,1 @@
+ALTER TABLE "games" ADD COLUMN "show_running_totals" boolean DEFAULT true NOT NULL;

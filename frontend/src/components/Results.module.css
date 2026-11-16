@@ -1,0 +1,55 @@
+.table tr[data-me] {
+  @mixin light {
+    background-color: var(--mantine-color-frum-0);
+  }
+  @mixin dark {
+    background-color: rgba(106, 164, 255, 0.18);
+  }
+}
+
+.fadeIn {
+  animation: fade-up 600ms ease both;
+}
+
+.answerCard {
+  text-align: center;
+  @mixin light {
+    background: linear-gradient(135deg, #fff, var(--mantine-color-frum-0));
+  }
+  @mixin dark {
+    background: linear-gradient(135deg, #2b3a9e, #5b34a8);
+  }
+}
+
+.eyebrow {
+  letter-spacing: 0.12em;
+  color: var(--mantine-color-dimmed);
+}
+
+.answer {
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+  font-family: var(--mantine-font-family-headings);
+  font-size: clamp(3rem, 14vw, 5.5rem);
+  line-height: 1;
+  color: var(--mantine-color-frum-filled);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* Stand out from the card they sit in, in both themes. */
+.accordionItem {
+  border: 2px solid;
+  @mixin light {
+    background-color: var(--mantine-color-frum-0);
+    border-color: var(--mantine-color-frum-2);
+  }
+  @mixin dark {
+    background-color: var(--mantine-color-dark-4);
+    border-color: var(--mantine-color-dark-3);
+  }
+}

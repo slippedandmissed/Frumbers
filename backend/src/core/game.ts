@@ -64,11 +64,13 @@ export async function createGame({
   host,
   rounds: roundInputs,
   showRoundIndicator,
+  showRunningTotals,
   tx,
 }: {
   host: Player;
   rounds: RoundInput[];
   showRoundIndicator: boolean;
+  showRunningTotals: boolean;
   tx?: Transactable;
 }): Promise<Game> {
   if (roundInputs.length === 0) {
@@ -78,7 +80,7 @@ export async function createGame({
     const slug = `${randomName()}-${randomName()}`;
     const game = await tx
       .insert(games)
-      .values({ ownerId: host.id, slug, showRoundIndicator })
+      .values({ ownerId: host.id, slug, showRoundIndicator, showRunningTotals })
       .returning()
       .then((res) => res[0]!);
     await tx.insert(rounds).values(
@@ -126,6 +128,14 @@ export const NonHostGame = t.Object({
   ownerId: t.String(),
   isOver: t.Boolean(),
   showRoundIndicator: t.Boolean(),
+  showRunningTotals: t.Boolean(),
+  /**
+   * Shared clock for the results races. `finishedAt` is when the whole game
+   * ended; `serverTime` lets clients correct for their own clock being off.
+   */
+  finishedAt: t.Union([t.String(), t.Null()]),
+  raceSkipped: t.Boolean(),
+  serverTime: t.String(),
   phase: t.Union([
     t.Literal("playing"),
     t.Literal("round-over"),
@@ -138,6 +148,8 @@ export const NonHostGame = t.Object({
     question: t.String(),
     answer: t.Number(),
     isOver: t.Boolean(),
+    finishedAt: t.Union([t.String(), t.Null()]),
+    raceSkipped: t.Boolean(),
   }),
   /** Null unless the host has turned the round indicator on. */
   totalRounds: t.Union([t.Number(), t.Null()]),
@@ -161,6 +173,10 @@ async function loadNonHostGame(
     ownerId: game.ownerId,
     isOver: game.isOver,
     showRoundIndicator: game.showRoundIndicator,
+    showRunningTotals: game.showRunningTotals,
+    finishedAt: game.finishedAt?.toISOString() ?? null,
+    raceSkipped: game.raceSkipped,
+    serverTime: new Date().toISOString(),
     phase: game.isOver
       ? "game-over"
       : current.isOver
@@ -172,6 +188,8 @@ async function loadNonHostGame(
       question: current.question,
       answer: current.isOver ? current.answer : 0,
       isOver: current.isOver,
+      finishedAt: current.finishedAt?.toISOString() ?? null,
+      raceSkipped: current.raceSkipped,
     },
     totalRounds: game.showRoundIndicator ? allRounds.length : null,
   };
@@ -208,7 +226,7 @@ export async function editGameSettings({
   data,
 }: {
   game: Game;
-  data: { showRoundIndicator?: boolean };
+  data: { showRoundIndicator?: boolean; showRunningTotals?: boolean };
 }) {
   await withLockedGame(game.id, async (tx) => {
     await tx.update(games).set(data).where(eq(games.id, game.id));
@@ -354,7 +372,7 @@ export async function finishCurrentRound({ game }: { game: Game }) {
     }
     await tx
       .update(rounds)
-      .set({ isOver: true })
+      .set({ isOver: true, finishedAt: new Date() })
       .where(eq(rounds.id, round.id));
   });
 }
@@ -399,7 +417,35 @@ export async function finishGame({ game }: { game: Game }) {
         "The game can only be finished after its last round is finished",
       );
     }
-    await tx.update(games).set({ isOver: true }).where(eq(games.id, game.id));
+    await tx
+      .update(games)
+      .set({ isOver: true, finishedAt: new Date() })
+      .where(eq(games.id, game.id));
+  });
+}
+
+/**
+ * Host-only: skips the results race that is currently showing (the grand
+ * final once the game is over, otherwise the current round's). The flag is
+ * shared, so every player's screen jumps to the podium.
+ */
+export async function skipRace({ game }: { game: Game }) {
+  await withLockedGame(game.id, async (tx, game) => {
+    if (game.isOver) {
+      await tx
+        .update(games)
+        .set({ raceSkipped: true })
+        .where(eq(games.id, game.id));
+      return;
+    }
+    const round = await getCurrentRound(game, tx);
+    if (!round.isOver) {
+      throw new HttpError(409, "There's no race to skip yet");
+    }
+    await tx
+      .update(rounds)
+      .set({ raceSkipped: true })
+      .where(eq(rounds.id, round.id));
   });
 }
 
@@ -470,7 +516,11 @@ export async function getAllGuessesForGame({
     );
 }
 
-/** Results and running totals, built only from finished rounds. */
+/**
+ * Results and running totals, built only from finished rounds. Totals are
+ * withheld mid-game when the host turned running totals off, and after the
+ * last round until the game is over, so the final reveal stays a surprise.
+ */
 export async function getStandings({
   game,
   tx = db,
@@ -496,5 +546,17 @@ export async function getStandings({
       results: scoreRound(round.answer, roundGuesses),
     });
   }
-  return { rounds: roundResults, totals: totalUp(roundResults) };
+  const upcoming = await tx.query.rounds.findFirst({
+    where: and(
+      eq(rounds.gameId, game.id),
+      gt(rounds.position, game.currentRound.position),
+    ),
+    columns: { id: true },
+  });
+  const showTotals =
+    game.isOver || (game.showRunningTotals && upcoming !== undefined);
+  return {
+    rounds: roundResults,
+    totals: showTotals ? totalUp(roundResults) : [],
+  };
 }

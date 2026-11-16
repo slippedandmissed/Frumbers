@@ -17,6 +17,7 @@ import {
   getStandings,
   NonHostGame,
   reorderUpcomingRounds,
+  skipRace,
   startNextRound,
 } from "../core/game";
 import { Standings } from "../core/scoring";
@@ -35,6 +36,7 @@ export default new Elysia({ prefix: "/game" }).guard(
             host: player,
             rounds: body.rounds,
             showRoundIndicator: body.showRoundIndicator ?? true,
+            showRunningTotals: body.showRunningTotals ?? true,
           });
         },
         {
@@ -44,6 +46,7 @@ export default new Elysia({ prefix: "/game" }).guard(
               { minItems: 1 },
             ),
             showRoundIndicator: t.Optional(t.Boolean()),
+            showRunningTotals: t.Optional(t.Boolean()),
           }),
           response: Game,
         },
@@ -185,9 +188,18 @@ export default new Elysia({ prefix: "/game" }).guard(
                 {
                   body: t.Object({
                     showRoundIndicator: t.Optional(t.Boolean()),
+                    showRunningTotals: t.Optional(t.Boolean()),
                   }),
                   response: t.String(),
                 },
+              )
+              .post(
+                "/race/skip",
+                async ({ game }) => {
+                  await skipRace({ game });
+                  return "Ok";
+                },
+                { response: t.String() },
               )
               .post(
                 "/finish",

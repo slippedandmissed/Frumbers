@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { api } from "../utils/api";
 
 export function useMotd() {
-  const { data } = useSuspenseQuery({
+  const { data, refetch, isFetching } = useSuspenseQuery({
     queryKey: ["motd"],
     queryFn: async () => {
       const response = await api.motd.get();
@@ -13,5 +13,5 @@ export function useMotd() {
     },
   });
 
-  return data;
+  return { motd: data, refresh: () => refetch(), isRefreshing: isFetching };
 }
