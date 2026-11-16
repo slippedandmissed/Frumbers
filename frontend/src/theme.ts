@@ -43,6 +43,10 @@ export const theme = createTheme({
   },
   components: {
     Card: { defaultProps: { radius: "lg", withBorder: true } },
+    Checkbox: {
+      defaultProps: { size: "md", radius: "sm" },
+      styles: { label: { fontWeight: 600 } },
+    },
     Button: { defaultProps: { radius: "xl", fw: 600 } },
     Modal: { defaultProps: { radius: "lg" } },
     Popover: { defaultProps: { radius: "md", shadow: "lg" } },

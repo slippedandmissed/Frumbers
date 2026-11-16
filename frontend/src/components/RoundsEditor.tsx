@@ -1,12 +1,4 @@
-import {
-  ActionIcon,
-  Badge,
-  Button,
-  Card,
-  Group,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { ActionIcon, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { Hint } from "./Hint";
 import {
   IconArrowDown,
@@ -40,12 +32,7 @@ export function RoundsEditor({
       {rounds.map((round, index) => (
         <Card key={index} p="md" radius="md">
           <Group justify="space-between" mb="xs">
-            <Group gap="xs">
-              <Badge circle size="lg">
-                {index + 1}
-              </Badge>
-              <Text fw={600}>Question {index + 1}</Text>
-            </Group>
+            <Text fw={700}>Question {index + 1}</Text>
             {rounds.length > 1 && (
               <Group gap={4}>
                 <ActionIcon

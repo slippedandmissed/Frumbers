@@ -2,7 +2,6 @@ import {
   Button,
   Card,
   Container,
-  Divider,
   Stack,
   Checkbox,
   Text,
@@ -91,57 +90,69 @@ export function HomePage() {
         </Stack>
 
         <Card p={{ base: "md", sm: "xl" }} shadow="sm">
-          <Stack gap="lg">
-            <Title order={3}>
-              {rounds.length > 1 ? "Your questions" : "Your question"}
-            </Title>
-            <Text size="sm" c="dimmed" mt={-8}>
-              Players only see each question when its round starts, and the
-              answer stays hidden until the round is over.
-            </Text>
-            <RoundsEditor rounds={rounds} onChange={setRounds} />
-            <Divider />
-            <Checkbox
-              size="md"
-              label="Show players which round they're on"
-              description="Displays “Round X of Y” to everyone."
-              checked={showRoundIndicator}
-              onChange={(event) =>
-                setShowRoundIndicator(event.currentTarget.checked)
-              }
-            />
-            <Checkbox
-              size="md"
-              label="Show running totals between rounds"
-              description={
-                rounds.length > 1
-                  ? "Never shown after the last round, so the final reveal stays a surprise."
-                  : "Needs more than one question."
-              }
-              disabled={rounds.length <= 1}
-              checked={showRunningTotals}
-              onChange={(event) =>
-                setShowRunningTotals(event.currentTarget.checked)
-              }
-            />
-            <Hint>
-              You'll be able to change these settings later from Host controls.
-            </Hint>
-            <Button
-              onClick={() => createGame()}
-              size="lg"
-              fullWidth
-              rightSection={<IconArrowRight size={18} />}
-              disabled={rounds.some((round) => !round.question)}
-              loading={isCreating}
-            >
-              Create game
-            </Button>
-            {error && (
-              <Text ta="center" c="red">
-                {error}
+          <Stack gap="xl">
+            <Stack gap="sm">
+              <Title order={4}>
+                {rounds.length > 1 ? "Questions" : "Question"}
+              </Title>
+              <Text size="sm" c="dimmed">
+                Players only see each question when its round starts, and the
+                answer stays hidden until the round is over.
               </Text>
-            )}
+              <RoundsEditor rounds={rounds} onChange={setRounds} />
+            </Stack>
+
+            {/* Same heading level and card style as the questions above. */}
+            <Stack gap="sm">
+              <Title order={4}>Options</Title>
+              <Card p="md" radius="md">
+                <Stack gap="md">
+                  <Checkbox
+                    label="Show players which round they're on"
+                    description="Displays “Round X of Y” to everyone."
+                    checked={showRoundIndicator}
+                    onChange={(event) =>
+                      setShowRoundIndicator(event.currentTarget.checked)
+                    }
+                  />
+                  <Checkbox
+                    label="Show running totals between rounds"
+                    description={
+                      rounds.length > 1
+                        ? "Never shown after the last round, so the final reveal stays a surprise."
+                        : "Needs more than one question."
+                    }
+                    disabled={rounds.length <= 1}
+                    checked={showRunningTotals}
+                    onChange={(event) =>
+                      setShowRunningTotals(event.currentTarget.checked)
+                    }
+                  />
+                </Stack>
+              </Card>
+              <Hint>
+                You'll be able to change these settings later from Host
+                controls.
+              </Hint>
+            </Stack>
+
+            <Stack gap="xs">
+              <Button
+                onClick={() => createGame()}
+                size="lg"
+                fullWidth
+                rightSection={<IconArrowRight size={18} />}
+                disabled={rounds.some((round) => !round.question)}
+                loading={isCreating}
+              >
+                Create game
+              </Button>
+              {error && (
+                <Text ta="center" c="red">
+                  {error}
+                </Text>
+              )}
+            </Stack>
           </Stack>
         </Card>
       </Stack>

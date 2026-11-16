@@ -43,7 +43,7 @@ function PodiumPlace({
         <div className={classes.duckLand}>
           <Duck look={look} width={rank === 1 ? 84 : 68} />
         </div>
-        <Text className={classes.name} lineClamp={1}>
+        <Text className={classes.name} lineClamp={3}>
           {name}
         </Text>
         {entry.caption && (

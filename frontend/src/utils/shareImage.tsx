@@ -73,6 +73,22 @@ function outlinedText(
   ctx.fillText(text, x, y);
 }
 
+/** Sets the largest font size (down to `minPx`) at which `text` fits. */
+function shrinkToFit(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  font: (px: number) => string,
+  startPx: number,
+  minPx: number,
+  maxWidth: number,
+) {
+  for (let px = startPx; px >= minPx; px--) {
+    ctx.font = font(px);
+    if (ctx.measureText(text).width <= maxWidth) return text;
+  }
+  return fit(ctx, text, maxWidth);
+}
+
 function fit(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let t = text;
@@ -229,8 +245,14 @@ export async function renderShareImage(
       ctx.fillText("👑", x + w / 2 + dw * 0.18, top - dh + 8);
     }
 
-    ctx.font = `24px ${FONT}`;
-    const label = fit(ctx, e.name, w + 10);
+    const label = shrinkToFit(
+      ctx,
+      e.name,
+      (px) => `${px}px ${FONT}`,
+      24,
+      14,
+      w + 30,
+    );
     const lw = ctx.measureText(label).width + 28;
     pill(ctx, x + w / 2 - lw / 2, top - dh - 30, lw, 36, 18, "#fff", 4);
     ctx.fillStyle = INK;
@@ -256,8 +278,11 @@ export async function renderShareImage(
     ctx.fillStyle = INK;
     ctx.textAlign = "left";
     ctx.fillText(medals[e.rank] ?? String(e.rank), cardX + 24, y);
-    ctx.font = `700 22px ${BODY}`;
-    ctx.fillText(fit(ctx, e.name, 230), cardX + 72, y);
+    ctx.fillText(
+      shrinkToFit(ctx, e.name, (px) => `700 ${px}px ${BODY}`, 22, 15, 230),
+      cardX + 72,
+      y,
+    );
     ctx.textAlign = "right";
     ctx.fillText(fmt(e.value), cardX + cardW - 24, y);
   });
