@@ -10,13 +10,13 @@ export function Motd() {
   const [turns, setTurns] = useState(0);
 
   return (
-    <Group gap={6} justify="center" wrap="nowrap" className={classes.root}>
+    <Group gap={6} justify="flex-end" wrap="nowrap" className={classes.root}>
       <Text
         key={motd}
         size="sm"
         fs="italic"
         c="dimmed"
-        ta="center"
+        ta="right"
         className={classes.text}
         data-refreshing={isRefreshing || undefined}
       >
