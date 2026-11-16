@@ -15,6 +15,13 @@ async function getAuth(): Promise<{ playerId: string; playerPin: string }> {
     if (!result.error) {
       return { playerId: storedPlayerId, playerPin: storedPlayerPin };
     }
+    // Only a 401 means the stored credentials are really invalid. Anything
+    // else (a 5xx during a deploy, say) is transient, and registering a new
+    // player here would silently discard the user's identity, including admin
+    // access to any games they host.
+    if (result.error.status !== 401) {
+      throw new Error(`Couldn't verify your player: ${result.error.status}`);
+    }
   }
 
   const result = await api.player.register.post();
