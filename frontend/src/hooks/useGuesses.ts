@@ -5,12 +5,14 @@ import {
 } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { api } from "../utils/api";
+import { useGame } from "./useGame";
 
 export function useGuesses({ gameId }: { gameId: string }) {
   const { playerId, playerPin } = useAuth();
   const queryClient = useQueryClient();
+  const { currentRound } = useGame({ gameId });
 
-  const { data: guesses } = useSuspenseQuery({
+  const { data: allGuesses } = useSuspenseQuery({
     queryKey: ["guesses", gameId],
     queryFn: async () => {
       const response = await api.game[gameId].guesses.get({
@@ -42,15 +44,20 @@ export function useGuesses({ gameId }: { gameId: string }) {
     onMutate: async (newGuess) => {
       const now = new Date();
       await queryClient.cancelQueries({ queryKey: ["guesses", gameId] });
-      const previousGuesses = queryClient.getQueryData<typeof guesses>([
+      const previousGuesses = queryClient.getQueryData<typeof allGuesses>([
         "guesses",
         gameId,
       ]);
       queryClient.setQueryData(
         ["guesses", gameId],
-        (oldGuesses: typeof guesses) => [
+        (oldGuesses: typeof allGuesses) => [
           ...oldGuesses,
-          { playerId, guess: newGuess, created: now.toISOString() },
+          {
+            playerId,
+            roundId: currentRound.id,
+            guess: newGuess,
+            created: now.toISOString(),
+          },
         ],
       );
       return { previousGuesses };
@@ -63,10 +70,13 @@ export function useGuesses({ gameId }: { gameId: string }) {
     },
   });
 
+  // Guesses made in the round that is currently on screen.
+  const guesses = allGuesses.filter((g) => g.roundId === currentRound.id);
   const haveIGuessed = guesses.some((g) => g.playerId === playerId);
 
   return {
     guesses,
+    allGuesses,
     haveIGuessed,
     makeGuess,
     invalidate: () =>

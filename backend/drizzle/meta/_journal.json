@@ -15,6 +15,20 @@
       "when": 1768407353517,
       "tag": "0001_third_union_jack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794856357069,
+      "tag": "0002_add_rounds",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794856365871,
+      "tag": "0003_drop_game_question_answer",
+      "breakpoints": true
     }
   ]
 }

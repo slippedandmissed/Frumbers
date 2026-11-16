@@ -1,4 +1,5 @@
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePusher } from "../hooks/usePusher";
 import { useGame } from "../hooks/useGame";
 import {
@@ -9,7 +10,6 @@ import {
   NumberInput,
   Stack,
   Text,
-  TextInput,
   Title,
   Tooltip,
 } from "@mantine/core";
@@ -20,16 +20,24 @@ import { usePlayer } from "../hooks/usePlayer";
 import TimeAgo from "react-timeago";
 import { IconCopy } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
-import { BigNumber } from "./BigNumber";
+import { RoundIndicator } from "./RoundIndicator";
+import { AddRoundForm, HostRoundsPanel } from "./HostRoundsPanel";
+import { FinalResults, RoundOverResults } from "./Results";
+
+// Keep in sync with MIN_GUESSES_TO_FINISH_ROUND in backend/src/core/game.ts.
+const MIN_GUESSES_TO_FINISH_ROUND = 2;
 
 export function GamePage({ gameId }: { gameId: string }) {
   const pusher = usePusher();
-  const { isMine, isOver, invalidate: invalidateGame } = useGame({ gameId });
+  const queryClient = useQueryClient();
+  const { isMine, phase } = useGame({ gameId });
   const { invalidate: invalidateGuesses } = useGuesses({ gameId });
   useEffect(() => {
     const channel = pusher.subscribe(`game-${gameId}`);
     channel.bind("game-updated", () => {
-      invalidateGame();
+      for (const key of ["game", "standings", "guesses", "myGame"]) {
+        queryClient.invalidateQueries({ queryKey: [key, gameId] });
+      }
     });
     channel.bind("new-guess", () => {
       invalidateGuesses();
@@ -38,9 +46,17 @@ export function GamePage({ gameId }: { gameId: string }) {
       channel.unbind_all();
       pusher.unsubscribe(`game-${gameId}`);
     };
-  }, [pusher, gameId, invalidateGame, invalidateGuesses]);
-  if (isOver) {
-    return <GameOver gameId={gameId} />;
+  }, [pusher, gameId, queryClient, invalidateGuesses]);
+
+  if (phase === "game-over") {
+    return (
+      <Stack m="xl" align="center" justify="center">
+        <FinalResults gameId={gameId} />
+      </Stack>
+    );
+  }
+  if (phase === "round-over") {
+    return <RoundOver gameId={gameId} isMine={isMine} />;
   }
   if (isMine) {
     return <MyGame gameId={gameId} />;
@@ -49,14 +65,40 @@ export function GamePage({ gameId }: { gameId: string }) {
 }
 
 function SomeoneElsesGame({ gameId }: { gameId: string }) {
-  const { question } = useGame({ gameId });
+  const { currentRound, totalRounds } = useGame({ gameId });
+  // Remount per round so the guess box resets.
+  return (
+    <GuessScreen
+      key={currentRound.id}
+      gameId={gameId}
+      question={currentRound.question}
+      position={currentRound.position}
+      totalRounds={totalRounds}
+    />
+  );
+}
+
+function GuessScreen({
+  gameId,
+  question,
+  position,
+  totalRounds,
+}: {
+  gameId: string;
+  question: string;
+  position: number;
+  totalRounds: number | null;
+}) {
   const { makeGuess, haveIGuessed } = useGuesses({ gameId });
 
   const [guess, setGuess] = useState<number>(0);
 
   return (
     <Stack m="xl" align="center" justify="center" gap="xl">
-      <Title>{question}</Title>
+      <Stack align="center" gap={0}>
+        <RoundIndicator position={position} totalRounds={totalRounds} />
+        <Title ta="center">{question}</Title>
+      </Stack>
       <GuessList gameId={gameId} />
       <NumberInput
         disabled={haveIGuessed}
@@ -80,74 +122,102 @@ function SomeoneElsesGame({ gameId }: { gameId: string }) {
 }
 
 function MyGame({ gameId }: { gameId: string }) {
-  const { question, setQuestion, answer, setAnswer, setIsOver } = useMyGame({
-    gameId,
-  });
+  const { game, rounds, finishRound } = useMyGame({ gameId });
+  const { guesses } = useGuesses({ gameId });
 
   return (
     <Stack m="xl" align="center" justify="center" gap="xl">
-      <Title>The Game is On!</Title>
-      <ShareCard />
-      <Stack w={600} maw="90%">
-        <TextInput
-          label="Question"
-          size="xl"
-          value={question}
-          onChange={(event) => setQuestion(event.currentTarget.value)}
+      <Stack align="center" gap={0}>
+        <RoundIndicator
+          position={game.currentRoundPosition}
+          totalRounds={rounds.length}
         />
-        <NumberInput
-          size="xl"
-          label="Answer"
-          placeholder="42"
-          value={answer}
-          onChange={(value) => setAnswer(isNaN(+value) ? 0 : +value)}
-        />
+        <Title>The Game is On!</Title>
       </Stack>
-      <Button size="xl" onClick={() => setIsOver(true)}>
-        End Game
-      </Button>
+      <ShareCard />
+      <HostRoundsPanel gameId={gameId} />
+      <Stack align="center" gap="xs">
+        <Button
+          size="xl"
+          disabled={guesses.length < MIN_GUESSES_TO_FINISH_ROUND}
+          onClick={() => finishRound()}
+        >
+          Finish Round
+        </Button>
+        {guesses.length < MIN_GUESSES_TO_FINISH_ROUND && (
+          <Text c="dimmed" size="sm">
+            Waiting for at least {MIN_GUESSES_TO_FINISH_ROUND} guesses (
+            {guesses.length} so far)
+          </Text>
+        )}
+      </Stack>
       <GuessList gameId={gameId} />
     </Stack>
   );
 }
 
-function GameOver({ gameId }: { gameId: string }) {
-  const { question, answer } = useGame({ gameId });
+/** Winner screen after a round. Everyone sees results; the host also steers. */
+function RoundOver({ gameId, isMine }: { gameId: string; isMine: boolean }) {
+  const { currentRound, totalRounds } = useGame({ gameId });
+  return (
+    <Stack m="xl" align="center" justify="center" gap="xl">
+      <RoundIndicator
+        position={currentRound.position}
+        totalRounds={totalRounds}
+      />
+      <Suspense fallback={<Loader />}>
+        <RoundOverResults gameId={gameId} roundId={currentRound.id} />
+      </Suspense>
+      {isMine ? (
+        <HostRoundOverControls gameId={gameId} />
+      ) : (
+        <Text c="dimmed" fw="bold">
+          Waiting for the host to continue&hellip;
+        </Text>
+      )}
+    </Stack>
+  );
+}
 
-  const { guesses } = useGuesses({ gameId });
-  const sortedGuesses = useMemo(() => {
-    return [...guesses].sort((a, b) => {
-      return Math.abs(a.guess - answer) - Math.abs(b.guess - answer);
-    });
-  }, [guesses, answer]);
-  const gold = sortedGuesses.length > 0 ? sortedGuesses[0] : null;
-  const silver = sortedGuesses.length > 1 ? sortedGuesses[1] : null;
-  const bronze = sortedGuesses.length > 2 ? sortedGuesses[2] : null;
+function HostRoundOverControls({ gameId }: { gameId: string }) {
+  const { hasNextRound, startNextRound, addRound, finishGame } = useMyGame({
+    gameId,
+  });
+  const [isAdding, setIsAdding] = useState(false);
 
   return (
-    <Stack m="xl" align="center" justify="center">
-      <Title>{question}</Title>
-      <BigNumber value={answer} style={{ fontSize: 40 }} />
-      <Group gap="xl" my="xl">
-        {gold && (
-          <Badge playerId={gold.playerId} guess={gold.guess} color="gold" />
-        )}
-        {silver && (
-          <Badge
-            playerId={silver.playerId}
-            guess={silver.guess}
-            color="silver"
-          />
-        )}
-        {bronze && (
-          <Badge
-            playerId={bronze.playerId}
-            guess={bronze.guess}
-            color="bronze"
-          />
-        )}
-      </Group>
-      <GuessList gameId={gameId} />
+    <Stack align="center" gap="xl" w="100%">
+      {hasNextRound ? (
+        <Button size="xl" onClick={() => startNextRound()}>
+          Next Round
+        </Button>
+      ) : isAdding ? (
+        <Card w={600} maw="90%" p="md" shadow="xl" radius="md">
+          <Stack>
+            <Title order={4}>One more question</Title>
+            <AddRoundForm
+              submitLabel="Add and start round"
+              onAdd={async (round) => {
+                await addRound(round);
+                await startNextRound();
+              }}
+            />
+            <Button variant="subtle" onClick={() => setIsAdding(false)}>
+              Cancel
+            </Button>
+          </Stack>
+        </Card>
+      ) : (
+        <Group>
+          <Button size="xl" variant="outline" onClick={() => setIsAdding(true)}>
+            Add a Question
+          </Button>
+          <Button size="xl" onClick={() => finishGame()}>
+            Finish Game
+          </Button>
+        </Group>
+      )}
+      <HostRoundsPanel gameId={gameId} canAdd={hasNextRound} />
     </Stack>
   );
 }
@@ -184,8 +254,9 @@ function Guess({
   created: string;
 }) {
   const { playerId: myPlayerId } = useAuth();
-  const { isMine: isGameMine, isOver: isGameOver } = useGame({ gameId });
-  const canSeeAnswer = isGameOver || isGameMine || myPlayerId === playerId;
+  const { isMine: isGameMine, currentRound } = useGame({ gameId });
+  const canSeeAnswer =
+    currentRound.isOver || isGameMine || myPlayerId === playerId;
 
   return (
     <Group>
@@ -215,61 +286,6 @@ function GuessPlayerName({ playerId }: { playerId: string }) {
     <Text c="blue" fw="bold">
       {name}
     </Text>
-  );
-}
-
-function Badge({
-  playerId,
-  guess,
-  color,
-}: {
-  playerId: string;
-  guess: number;
-  color: "gold" | "silver" | "bronze";
-}) {
-  const { name } = usePlayer({ playerId });
-
-  const cssColor = {
-    gold: "gold",
-    silver: "silver",
-    bronze: "peru",
-  }[color];
-
-  const number = {
-    gold: 1,
-    silver: 2,
-    bronze: 3,
-  }[color];
-
-  const cardSize = 100;
-
-  return (
-    <Stack align="center" justify="center" mx="xl">
-      <Text c={cssColor} style={{ fontSize: 48 }}>
-        #{number}
-      </Text>
-      <Card
-        bg={cssColor}
-        w={cardSize}
-        h={cardSize}
-        radius="100%"
-        shadow="xl"
-        withBorder
-        bd="1px solid grey"
-      >
-        <Stack align="center" justify="center" h="100%" gap={0}>
-          <BigNumber
-            value={guess}
-            c="black"
-            fw="bold"
-            style={{ fontSize: 30 }}
-          />
-        </Stack>
-      </Card>
-      <Text c={cssColor} fw="bold" size="lg" maw={160} ta="center">
-        {name}
-      </Text>
-    </Stack>
   );
 }
 

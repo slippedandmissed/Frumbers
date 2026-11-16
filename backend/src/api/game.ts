@@ -1,16 +1,26 @@
 import Elysia, { t } from "elysia";
 import { requirePlayer, requirePlayerGuard } from "../core/player";
 import {
+  addRound,
   createGame,
   createGuess,
-  editGame,
+  deleteRound,
+  editGameSettings,
+  editRound,
+  finishCurrentRound,
+  finishGame,
   getAllGuessesForGame,
   getGame,
   getGameBySlug,
   getNonHostGame,
+  getRounds,
+  getStandings,
   NonHostGame,
+  reorderUpcomingRounds,
+  startNextRound,
 } from "../core/game";
-import { Game } from "../db/schema";
+import { Standings } from "../core/scoring";
+import { Game, Round } from "../db/schema";
 import { HttpError } from "../errors/http_error";
 
 export default new Elysia({ prefix: "/game" }).guard(
@@ -23,14 +33,17 @@ export default new Elysia({ prefix: "/game" }).guard(
         async ({ player, body }) => {
           return await createGame({
             host: player,
-            question: body.question,
-            answer: body.answer,
+            rounds: body.rounds,
+            showRoundIndicator: body.showRoundIndicator ?? true,
           });
         },
         {
           body: t.Object({
-            question: t.String(),
-            answer: t.Number(),
+            rounds: t.Array(
+              t.Object({ question: t.String(), answer: t.Number() }),
+              { minItems: 1 },
+            ),
+            showRoundIndicator: t.Optional(t.Boolean()),
           }),
           response: Game,
         },
@@ -100,6 +113,7 @@ export default new Elysia({ prefix: "/game" }).guard(
                       created: t.String(),
                       guess: t.Number(),
                       playerId: t.String(),
+                      roundId: t.String(),
                     }),
                   ),
                 },
@@ -122,6 +136,13 @@ export default new Elysia({ prefix: "/game" }).guard(
                 },
               ),
           )
+          .get(
+            "/standings",
+            async ({ nonHostGame }) => getStandings({ game: nonHostGame }),
+            {
+              response: Standings,
+            },
+          )
           .group("/admin", (app) =>
             app
               .resolve(
@@ -142,22 +163,107 @@ export default new Elysia({ prefix: "/game" }).guard(
               .resolve({ as: "global" }, ({ game }) => {
                 return { game: game! };
               })
-              .get("/", ({ game }) => game, { response: Game })
+              .get(
+                "/",
+                async ({ game }) => ({
+                  game,
+                  rounds: await getRounds({ game }),
+                }),
+                {
+                  response: t.Object({
+                    game: Game,
+                    rounds: t.Array(Round),
+                  }),
+                },
+              )
               .patch(
                 "/",
                 async ({ game, body }) => {
-                  await editGame({
-                    game,
-                    data: body,
-                  });
+                  await editGameSettings({ game, data: body });
                   return "Ok";
                 },
                 {
-                  body: t.Partial(
-                    t.Pick(Game, ["question", "answer", "isOver"]),
-                  ),
+                  body: t.Object({
+                    showRoundIndicator: t.Optional(t.Boolean()),
+                  }),
                   response: t.String(),
                 },
+              )
+              .post(
+                "/finish",
+                async ({ game }) => {
+                  await finishGame({ game });
+                  return "Ok";
+                },
+                { response: t.String() },
+              )
+              .group("/rounds", (app) =>
+                app
+                  .post(
+                    "/",
+                    async ({ game, body }) => {
+                      await addRound({ game, round: body });
+                      return "Ok";
+                    },
+                    {
+                      body: t.Object({
+                        question: t.String(),
+                        answer: t.Number(),
+                      }),
+                      response: t.String(),
+                    },
+                  )
+                  .put(
+                    "/order",
+                    async ({ game, body }) => {
+                      await reorderUpcomingRounds({
+                        game,
+                        roundIds: body.roundIds,
+                      });
+                      return "Ok";
+                    },
+                    {
+                      body: t.Object({ roundIds: t.Array(t.String()) }),
+                      response: t.String(),
+                    },
+                  )
+                  .post(
+                    "/current/finish",
+                    async ({ game }) => {
+                      await finishCurrentRound({ game });
+                      return "Ok";
+                    },
+                    { response: t.String() },
+                  )
+                  .post(
+                    "/next",
+                    async ({ game }) => {
+                      await startNextRound({ game });
+                      return "Ok";
+                    },
+                    { response: t.String() },
+                  )
+                  .patch(
+                    "/:roundId",
+                    async ({ game, params: { roundId }, body }) => {
+                      await editRound({ game, roundId, data: body });
+                      return "Ok";
+                    },
+                    {
+                      body: t.Partial(
+                        t.Object({ question: t.String(), answer: t.Number() }),
+                      ),
+                      response: t.String(),
+                    },
+                  )
+                  .delete(
+                    "/:roundId",
+                    async ({ game, params: { roundId } }) => {
+                      await deleteRound({ game, roundId });
+                      return "Ok";
+                    },
+                    { response: t.String() },
+                  ),
               ),
           ),
       ),
